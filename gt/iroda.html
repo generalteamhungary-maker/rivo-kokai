@@ -404,7 +404,7 @@ function curIdx(p){for(var i=0;i<p.phases.length;i++)if(p.phases[i].st!=='done'&
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(function(){t.hidden=true},2200)}
 function log(p,m){p.log.push([iso(new Date()),m])}
 
-var MENU=[['att','Áttekintés'],['megk','Megkeresések'],['proj','Projektek'],['ajan','Ajánlatkészítő'],['nap','Naptár'],['penz','Pénzügyek'],['beall','Beállítások']];
+var MENU=[['att','Áttekintés'],['megk','Megkeresések'],['proj','Projektek'],['ajan','Ajánlatkészítő'],['nap','Naptár'],['penz','Pénzügyek'],['part','Partnerek'],['beall','Beállítások']];
 function renderMenu(){var m=document.getElementById('menu');m.innerHTML='';
   var nNew=S.leads.filter(function(l){return l.st==='uj'}).length,nWait=S.projects.filter(function(p){return p.phases.some(function(x){return x.st==='wait'})||(p.msgs||[]).some(function(m){return m.from==='u'&&!m.rd})||(p.req||[]).some(function(r){return r.by==='u'&&r.st==='pending'})}).length;
   MENU.forEach(function(x){var b=document.createElement('button');b.type='button';b.innerHTML='<span>'+x[1]+'</span>';
@@ -460,7 +460,7 @@ function vMegk(){
       if(c[0]==='uj'){var ut=UTN[l.ut]?l.ut:'felmeres';h+='<div style="width:100%"><span class="pill '+UTN[ut][1]+'">'+UTN[ut][0]+(l.fee?' · '+ft(l.fee):'')+'</span></div>';if(ut==='visszahivas')h+='<button class="btn sm" data-gcb="'+l.id+'">Visszahívtam</button>';if(ut==='becsles')h+='<button class="btn sm" data-offer="'+l.id+'">Költségbecslés készítése</button>';h+='<details style="width:100%"'+(ut==='felmeres'?' open':'')+'><summary class="muted" style="cursor:pointer;font-size:13px">Helyszíni felmérés időpontja</summary><div class="mini" style="gap:6px;margin-top:6px"><div class="mini c2" style="gap:6px"><input type="date" id="ld_'+l.id+'" value="'+iso(addWork(TODAY,3))+'" aria-label="Dátum"><select id="lt_'+l.id+'" aria-label="Időpont"><option>8:00</option><option>9:00</option><option selected>10:00</option><option>11:00</option><option>13:00</option><option>14:00</option><option>15:00</option></select></div><label class="fld">Felmérési díj (Ft, 0 = díjmentes)<input type="number" step="5000" min="0" id="lf_'+l.id+'" value="'+(l.fee!=null?l.fee:30000)+'"></label><button class="btn sm" data-gfelm="'+l.id+'" style="justify-self:start">Felmérés visszaigazolása</button></div></details>'}
       if(c[0]==='felm'){var le=S.events.filter(function(e){return e.lid===l.id}).slice(-1)[0];if(le)h+='<div style="width:100%">'+evLinks(le)+'</div>';if(l.fee)h+=(l.feePaid>1?'<span class="pill p-ok">Felmérési díj kifizetve</span>':'<button class="btn sm ghost" data-feepaid="'+l.id+'">'+(l.feePaid?'Felmérési díj hátraléka befizetve':'Felmérési előleg befizetve')+'</button>');h+='<button class="btn sm" data-offer="'+l.id+'">Ajánlatot készítek</button>'}
       if(c[0]==='ajanlat')h+='<button class="btn sm" data-lead="'+l.id+'|szerz">Megrendelte</button>';
-      if(c[0]==='szerz')h+='<button class="btn sm" data-mkproj="'+l.id+'">Projekt indítása</button>';
+      if(c[0]==='szerz')h+='<button class="btn sm" data-mkproj="'+l.id+'">Projekt indítása</button>';if(c[0]==='uj'||c[0]==='felm')h+=atadHtml(l);
       h+='</div></div>'});
     if(!items.length)h+='<p class="muted" style="font-size:13px;padding:6px">Nincs itt megkeresés.</p>';
     h+='</div>'});
@@ -736,6 +736,74 @@ function gtInput(t){
   if(t.dataset.q){OF.q[t.dataset.q]=+t.value||0;softRender(t);return true}
   if(t.dataset.mwd){OF.wd[t.dataset.mwd]=Math.max(1,+t.value||1);softRender(t);return true}
   return false}
+/* PARTNEREK ÉS JUTALÉKOK: megkeresés átadása szakági partnernek, ajánlások követése */
+var RIVO_API='https://script.google.com/macros/s/AKfycbxYgeSJEPj4zQlQoxu1woLnLV8YQdEm2bXwhjzd2IbayPJULP6pmNfQOj3PonUnmEnA/exec';
+var PDEF=[{id:'kokai',nev:'Kókai Terv – Kókai Zsófia',szakag:'Belsőépítészet, lakberendezés',email:'info@kokaiterv.com',tel:'+36 70 581 4979',web:'https://generalteamhungary-maker.github.io/rivo-kokai/',jut:5,rivo:1}];
+var ATST={atadva:['Átadva','p-info'],megrendelte:['Megrendelte','p-warn'],kesz:['Elkészült, kifizetve','p-ok'],elmaradt:['Nem lett belőle munka','p-mute']};
+var PJ={st:'',items:[],err:'',ts:''};
+function partners(){S.settings.partnerek=S.settings.partnerek||JSON.parse(JSON.stringify(PDEF));return S.settings.partnerek}
+function parById(id){return partners().filter(function(x){return x.id===id})[0]}
+function atadott(){S.atadott=S.atadott||[];return S.atadott}
+function jutOf(a){var pr=parById(a.pid);return Math.round((+a.ertek||0)*((a.jut!=null?a.jut:(pr?pr.jut:0))||0)/100)}
+function atadHtml(l){var ps=partners();if(!ps.length)return '';
+  return '<details style="width:100%"><summary class="muted" style="cursor:pointer;font-size:13px">Átadás szakági partnernek</summary><div class="mini" style="gap:6px;margin-top:6px"><select id="pa_'+l.id+'" aria-label="Partner">'+ps.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.szakag+' · '+p.nev)+'</option>'}).join('')+'</select><label class="chk" style="border:0;font-size:12.5px"><input type="checkbox" id="pu_'+l.id+'" checked><span>Az ügyfél e-mailt kap a partner elérhetőségével</span></label><button class="btn sm sec" data-atad="'+l.id+'" style="justify-self:start">Átadás</button></div></details>'}
+function pjLoad(){var r=gs();if(!r){PJ.st='ok';PJ.items=[];PJ.ts='helyi mód';if(view.tab==='part')render();return}
+  PJ.st='load';r.withSuccessHandler(function(res){PJ.st='ok';PJ.items=(res&&res.tetelek)||[];PJ.ts=(res&&res.ts)||'';if(view.tab==='part')render()}).withFailureHandler(function(err){PJ.st='err';PJ.err=String(err&&err.message||err);if(view.tab==='part')render()}).partnerJutalek(CFG.k)}
+function vPart(){
+  var ps=partners(),at=atadott(),kok=parById('kokai'),kj=kok?(+kok.jut||0):0;
+  if(!PJ.st)pjLoad();
+  var rv=PJ.items.filter(function(x){return x.tip==='proj'}),rl=PJ.items.filter(function(x){return x.tip==='lead'});
+  var vart=rv.filter(function(x){return !x.kesz}).reduce(function(a,x){return a+Math.round((x.osszes||x.ajanlat||0)*kj/100)},0)+at.filter(function(a){return a.st==='megrendelte'}).reduce(function(a,x){return a+jutOf(x)},0);
+  var esed=rv.filter(function(x){return x.kesz&&x.fizetve>=x.osszes}).reduce(function(a,x){return a+Math.round(x.fizetve*kj/100)},0)+at.filter(function(a){return a.st==='kesz'&&!a.jutBe}).reduce(function(a,x){return a+jutOf(x)},0);
+  var be=at.filter(function(a){return a.jutBe}).reduce(function(a,x){return a+jutOf(x)},0);
+  var h=bar('Partnerek és jutalékok','Szakági partnerek, akiknek megkeresést adsz át. A jutalék csak az elkészült és kifizetett munka után esedékes.');
+  h+='<div class="grid g4">'+kpi(rl.length+rv.length+at.length,'ajánlott megkeresés')+kpi(ft(vart),'várható jutalék (futó munkák)')+kpi(ft(esed),'esedékes jutalék')+kpi(ft(be),'beérkezett jutalék')+'</div>';
+  /* partnerlista */
+  h+='<div class="card"><h2>Szakági partnerek</h2><p class="muted" style="font-size:13px">A jutalék százaléka a partnerrel kötött megállapodás szerint, munkánként az átadáskor rögzül. A „Rivo” jelölésű partner a saját Rivo-irodájában kapja meg a megkeresést, ott „GeneralTeam ajánlásával” címkét lát, és innen élőben követheted, mi lett belőle.</p><div class="tbl"><table><thead><tr><th>Partner</th><th>Szakág</th><th>Elérhetőség</th><th class="r">Jutalék</th><th></th></tr></thead><tbody>';
+  ps.forEach(function(p,ix){h+='<tr><td><b>'+esc(p.nev)+'</b>'+(p.rivo?' <span class="pill p-ok">Rivo</span>':'')+(p.web?'<div><a class="lnk" href="'+esc(p.web)+'" target="_blank" rel="noopener">weboldal</a></div>':'')+'</td><td>'+esc(p.szakag)+'</td><td style="font-size:13px;overflow-wrap:anywhere">'+esc([p.email,p.tel].filter(Boolean).join(' · '))+'</td><td class="r" style="white-space:nowrap"><input type="number" min="0" max="50" step="0.5" data-pjut="'+esc(p.id)+'" value="'+(+p.jut||0)+'" style="width:72px;padding:4px 6px" aria-label="Jutalék százalék"> %</td><td class="r">'+(p.id==='kokai'?'':'<button class="xbtn" data-pdel="'+ix+'" title="Törlés" aria-label="Törlés">×</button>')+'</td></tr>'});
+  h+='</tbody></table></div><div class="box"><b>Új partner</b><div class="mini c2"><input type="text" id="np_nev" placeholder="Név / cég" aria-label="Név"><input type="text" id="np_sz" placeholder="Szakág, pl. villanyszerelés" aria-label="Szakág"><input type="text" id="np_em" placeholder="E-mail" aria-label="E-mail"><input type="text" id="np_tel" placeholder="Telefon" aria-label="Telefon"><input type="text" id="np_web" placeholder="Weboldal (nem kötelező)" aria-label="Weboldal"><input type="number" id="np_jut" value="5" min="0" step="0.5" aria-label="Jutalék %"></div><button class="btn sm" data-act="padd" style="align-self:flex-start">Partner hozzáadása</button></div></div>';
+  /* Rivo-partner élő adatai */
+  if(kok){h+='<div class="card"><div class="head"><div><h2>'+esc(kok.nev)+' – ajánlásaid</h2><p class="muted" style="font-size:13px">Élő adat a partner Rivo-irodájából: csak a GeneralTeam ajánlásával érkezett megkeresések. Jutalék: '+kj+'% a kifizetett összeg után.'+(PJ.ts?' Frissítve: '+esc(PJ.ts):'')+'</p></div><button class="btn sm ghost" data-act="pjload">Frissítés</button></div>';
+    if(PJ.st==='load')h+='<p class="muted">Betöltés…</p>';
+    else if(PJ.st==='err')h+='<p class="muted">Nem sikerült betölteni: '+esc(PJ.err)+'</p>';
+    else if(!PJ.items.length)h+='<p class="muted" style="font-size:13.5px">Még nincs ajánlott megkeresés. Ha a weboldalad Belsőépítészet oldaláról ír az érdeklődő, vagy itt átadsz egy megkeresést, megjelenik itt.</p>';
+    else{h+='<div class="tbl"><table><thead><tr><th>Ügyfél</th><th>Állapot</th><th class="r">Ajánlat / szerződés</th><th class="r">Kifizetve</th><th class="r">Jutalék</th></tr></thead><tbody>';
+      PJ.items.forEach(function(x){var lst={uj:'Új megkeresés',felm:'Időpont egyeztetve',ajanlat:'Ajánlat kiküldve',szerz:'Szerződés'}[x.st]||'Megkeresés',pr=x.tip==='proj',jt=Math.round((pr?x.fizetve:0)*kj/100),ok=pr&&x.kesz&&x.fizetve>=x.osszes;
+        h+='<tr><td><b>'+esc(x.nev)+'</b><div class="muted" style="font-size:12.5px">'+esc([x.proj||x.tipus,x.hely].filter(Boolean).join(' · '))+(x.when?' · '+fd(pd(x.when)):'')+'</div></td><td>'+(pr?(x.kesz?'<span class="pill p-ok">Elkészült</span>':'<span class="pill p-info">Projekt fut</span>'):'<span class="pill p-mute">'+lst+'</span>')+'</td><td class="r num">'+(x.ajanlat?ft(x.ajanlat):'–')+'</td><td class="r num">'+(pr?ft(x.fizetve)+(x.osszes?'<div class="muted" style="font-size:12px">/ '+ft(x.osszes)+'</div>':''):'–')+'</td><td class="r num">'+(pr?ft(jt)+(ok?'<div><span class="pill p-warn">Esedékes</span></div>':'<div class="muted" style="font-size:12px">eddig</div>'):'–')+'</td></tr>'});
+      h+='</tbody></table></div>'}
+    h+='</div>'}
+  /* átadott megkeresések (nem Rivo-partnerek, illetve minden átadás naplója) */
+  h+='<div class="card"><h2>Átadott megkeresések</h2><p class="muted" style="font-size:13px">A Megkeresések között az „Átadás szakági partnernek” gombbal kerülnek ide. Ha a partner nem használ Rivót, itt rögzítsd a munka értékét és az állapotát; a jutalék automatikusan számolódik.</p>';
+  if(!at.length)h+='<p class="muted" style="font-size:13.5px">Még nincs átadott megkeresés.</p>';
+  else{h+='<div class="tbl"><table><thead><tr><th>Ügyfél</th><th>Partner</th><th class="r">Munka értéke (nettó)</th><th>Állapot</th><th class="r">Jutalék</th><th></th></tr></thead><tbody>';
+    at.slice().reverse().forEach(function(a){var pr=parById(a.pid)||{nev:a.pnev||'?'};
+      h+='<tr><td><b>'+esc(a.nev)+'</b><div class="muted" style="font-size:12.5px">'+esc([a.tipus,a.hely].filter(Boolean).join(' · '))+' · '+fd(pd(a.d))+'</div></td><td>'+esc(pr.nev)+(a.rivo?' <span class="pill p-ok">Rivo</span>':'')+'</td><td class="r"><input type="number" step="10000" min="0" data-atv="'+a.id+'" value="'+(+a.ertek||0)+'" style="width:130px;padding:4px 6px" aria-label="Munka értéke"></td><td><select data-ats="'+a.id+'" aria-label="Állapot">'+Object.keys(ATST).map(function(k){return '<option value="'+k+'"'+(a.st===k?' selected':'')+'>'+ATST[k][0]+'</option>'}).join('')+'</select></td><td class="r num">'+ft(jutOf(a))+'<div class="muted" style="font-size:12px">'+(a.jut!=null?a.jut:(pr.jut||0))+'%</div></td><td class="r"><label style="display:flex;gap:6px;align-items:center;font-size:12.5px;justify-content:flex-end;white-space:nowrap"><input type="checkbox" data-atj="'+a.id+'"'+(a.jutBe?' checked':'')+(a.st==='kesz'?'':' disabled')+'> jutalék beérkezett</label></td></tr>'});
+    h+='</tbody></table></div>'}
+  h+='</div>';
+  main.innerHTML=h}
+function partClick(d,p,b){
+  if(d.act==='pjload'){PJ.st='';render();return true}
+  if(d.act==='padd'){var n=gv('np_nev').trim(),sz=gv('np_sz').trim(),em=gv('np_em').trim();if(!n||!sz){toast('Add meg a nevet és a szakágat');return true}if(em&&!/@/.test(em)){toast('Az e-mail cím nem tűnik érvényesnek');return true}
+    partners().push({id:'p'+Date.now(),nev:n,szakag:sz,email:em,tel:gv('np_tel').trim(),web:gv('np_web').trim(),jut:Math.max(0,+gv('np_jut')||0),rivo:0});toast('Partner hozzáadva');render();return true}
+  if(d.pdel!=null){var px=partners()[+d.pdel];if(px&&px.id!=='kokai'){partners().splice(+d.pdel,1);toast(px.nev+' törölve')}render();return true}
+  if(d.atad){var l=S.leads.filter(function(x){return x.id===d.atad})[0],pr=parById(gv('pa_'+d.atad)),uj=(document.getElementById('pu_'+d.atad)||{}).checked;if(!l||!pr)return true;
+    var rec={id:'a'+Date.now(),lid:l.id,pid:pr.id,pnev:pr.nev,nev:l.nev,email:l.email||'',tel:l.tel||'',tipus:l.tipus||'',hely:l.hely||'',d:iso(TODAY),ertek:0,st:'atadva',jut:+pr.jut||0,jutBe:0,rivo:pr.rivo?1:0};
+    var files=(l.files||[]).filter(function(f){return f[2]}).map(function(f){return f[0]+(f[1]?'.'+f[1]:'')+': '+f[2]}).join('\n');
+    var fin=function(){atadott().push(rec);S.leads=S.leads.filter(function(x){return x!==l});S.events.forEach(function(e){if(e.lid===l.id)e.lid=''});toast('Átadva: '+pr.nev);render()};
+    if(pr.rivo){if(!l.email){toast('A Rivo-partnernek csak e-mail címmel rendelkező megkeresés adható át');return true}
+      b.disabled=true;toast('Átadás a partner Rivo-irodájába…');
+      fetch(RIVO_API,{method:'POST',body:JSON.stringify({fn:'ajanlatkeres',args:[{nev:nm(l.nev),email:l.email,tel:l.tel||'',tipus:l.tipus||'',ingatlan:l.ingatlan||'',m2:+l.m2||0,hely:l.hely||'',megj:'A GeneralTeam ajánlásával. '+(l.note0||l.note||'')+(l.memo?'\nGT jegyzet: '+l.memo:'')+(files?'\nFájlok:\n'+files:''),ref:'gt'}]}),credentials:'omit'}).then(function(r){return r.json()}).then(function(j){if(j&&j.err)throw new Error(j.err);fin()}).catch(function(e){b.disabled=false;toast('Nem sikerült átadni: '+(e&&e.message||e))});return true}
+    if(pr.email)mail(pr.email,'Megkeresés a GeneralTeamtől: '+(l.tipus||'ajánlatkérés')+(l.hely?', '+l.hely:''),'<p>Kedves '+esc(pr.nev)+'!</p><p>Szakági munkára érkezett megkeresés, átadjuk Neked a megállapodásunk szerint. Kérlek, vedd fel a kapcsolatot az ügyféllel, és jelezd vissza, ha ajánlatot adtál vagy megrendelte a munkát.</p>'+lineTblTxt([['Ügyfél',nm(l.nev)],['E-mail',l.email||'–'],['Telefon',l.tel||'–'],['Munka',l.tipus||''],['Ingatlan',[l.ingatlan,l.m2?l.m2+' m²':'',l.hely].filter(Boolean).join(', ')],['Leírás',(l.note0||l.note||'')+(l.memo?' · '+l.memo:'')]])+(files?'<p><b>Fájlok</b><br>'+files.replace(/\n/g,'<br>')+'</p>':'')+sign());
+    if(uj&&l.email)mail(l.email,'Megkeresése szakági partnerünkhöz került','<p>Tisztelt '+esc(nm(l.nev))+'!</p><p>Köszönjük megkeresését. Ezt a munkát megbízható szakági partnerünk, <b>'+esc(pr.nev)+'</b> ('+esc(pr.szakag)+') végzi, akinek átadtuk az adatait; hamarosan jelentkezik Önnél.</p><p>Elérhetősége: '+esc([pr.tel,pr.email].filter(Boolean).join(' · '))+'</p><p>Ha a munkához más szakág is kell, vagy kérdése van, továbbra is keressen bennünket.</p>'+sign());
+    fin();return true}
+  return false}
+function lineTblTxt(rows){return '<table style="border-collapse:collapse;font-size:14px">'+rows.map(function(r){return '<tr><td style="padding:4px 14px 4px 0;color:#6b7075;vertical-align:top">'+esc(r[0])+'</td><td style="padding:4px 0">'+esc(r[1])+'</td></tr>'}).join('')+'</table>'}
+function partChange(t){
+  if(t.dataset.pjut){var p0=parById(t.dataset.pjut);if(p0){p0.jut=Math.max(0,+t.value||0);toast('Jutalék mentve: '+p0.jut+'%');save();if(view.tab==='part')render()}return true}
+  if(t.dataset.atv){var a=atadott().filter(function(x){return x.id===t.dataset.atv})[0];if(a){a.ertek=Math.max(0,+t.value||0);render()}return true}
+  if(t.dataset.ats){var a2=atadott().filter(function(x){return x.id===t.dataset.ats})[0];if(a2){a2.st=t.value;if(a2.st!=='kesz')a2.jutBe=0;render()}return true}
+  if(t.dataset.atj){var a3=atadott().filter(function(x){return x.id===t.dataset.atj})[0];if(a3){a3.jutBe=t.checked?1:0;render()}return true}
+  return false}
 function projCards(p){
   var h='<div class="grid g2"><div class="card"><h3>Kapcsolattartók</h3><p class="muted" style="font-size:13px">Akiket a projektben értesíteni kell: műszaki ellenőr, tervező, alvállalkozók, társ-megrendelő. A pipával jelölt címekre mennek a határidő- és tartalomváltozások és a meghívók. Az ügyfélportál linkjét csak az ügyfél kapja.</p><div class="list">';
   h+='<div class="row"><div><div class="t">'+esc(p.ugyfel)+' <span class="pill p-info">ügyfél</span></div><div class="s">'+esc([p.email,p.tel].filter(Boolean).join(' · ')||'nincs megadva elérhetőség')+'</div></div></div>';
@@ -901,7 +969,7 @@ function vBeall(){
    '<h2 style="margin-top:8px">Mintaadatok</h2><p class="muted" style="font-size:13.5px">A „(minta)” jelölésű projektek és megkeresések csak a bemutatót szolgálják. Ha élesben kezded használni, töröld őket.</p><div class="actions"><button class="btn sm sec" data-act="cleardemo">Mintaadatok törlése</button></div></div></div>';
   main.innerHTML=h;
 }
-function render(){renderMenu();({att:vAtt,megk:vMegk,proj:vProj,ajan:vAjan,nap:vNap,penz:vPenz,beall:vBeall})[view.tab]();save()}
+function render(){renderMenu();({att:vAtt,megk:vMegk,proj:vProj,ajan:vAjan,nap:vNap,penz:vPenz,part:vPart,beall:vBeall})[view.tab]();save()}
 
 function btnHtml(url,txt){return '<p><a href="'+esc(url)+'" style="display:inline-block;background:#0F2B36;color:#fff;padding:11px 18px;text-decoration:none;border-radius:4px">'+txt+'</a></p>'}
 function sign(){return '<p>Üdvözlettel:<br>Benkő Ádám<br>General Contractor Team Kft. · '+esc(S.settings.telefon||'')+'<br>generalteam.hu</p>'}
@@ -929,7 +997,7 @@ main.addEventListener('click',function(e){
   var b=e.target.closest('button,[data-chk]');if(!b)return;
   var d=b.dataset,p=S.projects.filter(function(x){return x.id===view.pid})[0];
   if(d.copy!=null)return;
-  if(gtClick(d,p,b))return;
+  if(gtClick(d,p,b))return;if(partClick(d,p,b))return;
   if(d.go){view.tab=d.go;render()}
   else if(d.ics){var ev=evById(d.ics);if(ev)icsDl(ev)}
   else if(d.dvis){var dv0=d.dvis.split('|'),dd0=p.phases[+dv0[0]].docs[+dv0[1]];while(dd0.length<4)dd0.push('');dd0[4]=dd0[4]?0:1;toast(dd0[4]?'Csak te látod, az ügyfél nem':'Az ügyfél is látja a portálon');render()}
@@ -1045,7 +1113,7 @@ main.addEventListener('click',function(e){
   else if(d.act==='cleardemo'){S.projects=S.projects.filter(function(x){return !/\(minta\)/.test(x.ugyfel)});S.leads=S.leads.filter(function(x){return !/\(minta\)/.test(x.nev)});S.events=S.events.filter(function(x){return !/\(minta\)|minta/.test(x.c)&&(!(x.pid||x.lid)||S.projects.some(function(q){return q.id===x.pid})||S.leads.some(function(q){return q.id===x.lid}))});view.pid=(S.projects[0]||{}).id;toast('Mintaadatok törölve');view.tab='att';render()}
   else if(d.act==='resetoffer'){OF.rate=JSON.parse(JSON.stringify(DEF_RATE));OF.desc={};OF.mods={felm:1,stil:1,oss:1,lat:1,atn:1,resz:1,ber:1};render()}
 });
-main.addEventListener('change',function(e){var t=e.target,p=S.projects.filter(function(x){return x.id===view.pid})[0];if(gtChange(t,p))return;
+main.addEventListener('change',function(e){var t=e.target,p=S.projects.filter(function(x){return x.id===view.pid})[0];if(gtChange(t,p))return;if(partChange(t))return;
   if(t.dataset.set){S.settings[t.dataset.set]=t.value.trim();toast('Mentve');save();return}
   if(t.dataset.pe){p.email=t.value.trim();toast('Ügyfél e-mail mentve');save();return}
   if(t.dataset.lmemo){var lm=S.leads.filter(function(x){return x.id===t.dataset.lmemo})[0];if(lm){lm.memo=t.value;toast('Jegyzet mentve');save()}return}
