@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
 <script>
-/* Rivo: a Google Apps Script háttér hívása fetch-csel (Safari-barát, bejelentkezés nélkül) */
+/* GeneralTeam: a Google Apps Script háttér hívása fetch-csel (Safari-barát, bejelentkezés nélkül) */
 (function(){var API='https://script.google.com/macros/s/AKfycbxYgeSJEPj4zQlQoxu1woLnLV8YQdEm2bXwhjzd2IbayPJULP6pmNfQOj3PonUnmEnA/exec';
 function call(fn,args,ok,fail){fetch(API,{method:'POST',body:JSON.stringify({fn:fn,args:args}),credentials:'omit',redirect:'follow'}).then(function(r){return r.json()}).then(function(j){if(j&&j.err!==undefined&&j.err!==null){fail&&fail(new Error(j.err))}else{ok&&ok(j?j.res:null)}}).catch(function(e){fail&&fail(e)})}
 function runner(){var ok=null,fail=null,p;p=new Proxy({},{get:function(_,name){if(name==='withSuccessHandler')return function(f){ok=f;return p};if(name==='withFailureHandler')return function(f){fail=f;return p};return function(){call(String(name),[].slice.call(arguments),ok,fail)}}});return p}
@@ -10,7 +10,7 @@ window.google={script:{}};Object.defineProperty(window.google.script,'run',{get:
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Kókai Terv – Rivo iroda</title>
+<title>Kókai Terv – iroda</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -213,7 +213,7 @@ input[type=time]{font-weight:400;font-size:14px;border:1px solid var(--line);bac
   <aside class="side">
     <div class="brand">
       <img id="logoimg" alt="Kókai Terv logó" width="36" height="36" style="display:block;mix-blend-mode:multiply">
-      <div><b>Kókai Terv</b><small>Rivo iroda</small></div>
+      <div><b>Kókai Terv</b><small>GeneralTeam iroda</small></div>
     </div>
     <nav class="menu" id="menu" aria-label="Menü"></nav>
     <div class="foot">
@@ -316,7 +316,7 @@ function cs(d){return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'T'+p2(
 function evInfo(e){return (e.link?'Csatlakozás: '+e.link+'\n':'')+(e.hely?'Helyszín: '+e.hely+'\n':'')+'Kókai Zsófia belsőépítész · '+((S.settings&&S.settings.telefon)||'')}
 function gcal(e){var r=evRange(e);return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(e.c)+'&dates='+cs(r[0])+'/'+cs(r[1])+'&ctz=Europe%2FBudapest&details='+encodeURIComponent(evInfo(e))+'&location='+encodeURIComponent(e.link||e.hely||'')}
 function icsEsc(x){return String(x||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;')}
-function icsDl(e){var r=evRange(e),t=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Rivo//Kokai Terv//HU','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+e.id+'@rivo.kokaiterv','SEQUENCE:'+(e.seq||0),'DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z','DTSTART;TZID=Europe/Budapest:'+cs(r[0]),'DTEND;TZID=Europe/Budapest:'+cs(r[1]),'SUMMARY:'+icsEsc(e.c),'LOCATION:'+icsEsc(e.link||e.hely||''),'DESCRIPTION:'+icsEsc(evInfo(e)),'END:VEVENT','END:VCALENDAR'].join('\r\n');
+function icsDl(e){var r=evRange(e),t=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//GeneralTeam//Kokai Terv//HU','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+e.id+'@rivo.kokaiterv','SEQUENCE:'+(e.seq||0),'DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z','DTSTART;TZID=Europe/Budapest:'+cs(r[0]),'DTEND;TZID=Europe/Budapest:'+cs(r[1]),'SUMMARY:'+icsEsc(e.c),'LOCATION:'+icsEsc(e.link||e.hely||''),'DESCRIPTION:'+icsEsc(evInfo(e)),'END:VEVENT','END:VCALENDAR'].join('\r\n');
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/calendar;charset=utf-8'}));a.download=String(e.c||'idopont').replace(/[\\/:*?"<>|]/g,'').slice(0,50)+'.ics';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
 function evLinks(e){return '<span class="evr">'+(e.link?'<a class="lnk" href="'+esc(e.link)+'" target="_blank" rel="noopener">Csatlakozás</a>':'')+'<a class="lnk" href="'+esc(gcal(e))+'" target="_blank" rel="noopener">Google Naptár</a><button type="button" class="btn sm ghost" data-ics="'+esc(e.id)+'">.ics (Apple, Outlook)</button></span>'}
 var EVK={konz:'Online konzultáció',szem:'Személyes konzultáció',felm:'Helyszíni felmérés',anyag:'Anyagválasztás',bejar:'Helyszíni bejárás',egyeb:'Egyeztetés'};

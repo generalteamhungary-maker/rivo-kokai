@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
 <script>
-/* Rivo: a Google Apps Script háttér hívása fetch-csel (Safari-barát, bejelentkezés nélkül) */
+/* GeneralTeam: a Google Apps Script háttér hívása fetch-csel (Safari-barát, bejelentkezés nélkül) */
 (function(){var API='https://script.google.com/macros/s/AKfycbxYgeSJEPj4zQlQoxu1woLnLV8YQdEm2bXwhjzd2IbayPJULP6pmNfQOj3PonUnmEnA/exec';
 function call(fn,args,ok,fail){fetch(API,{method:'POST',body:JSON.stringify({fn:fn,args:args}),credentials:'omit',redirect:'follow'}).then(function(r){return r.json()}).then(function(j){if(j&&j.err!==undefined&&j.err!==null){fail&&fail(new Error(j.err))}else{ok&&ok(j?j.res:null)}}).catch(function(e){fail&&fail(e)})}
 function runner(){var ok=null,fail=null,p;p=new Proxy({},{get:function(_,name){if(name==='withSuccessHandler')return function(f){ok=f;return p};if(name==='withFailureHandler')return function(f){fail=f;return p};return function(){call(String(name),[].slice.call(arguments),ok,fail)}}});return p}
@@ -409,7 +409,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
 <footer>
   <div class="wrap">
     <span>Kókai Terv Kft. · Budapest · adószám: 13285049-2-43</span>
-    <span>Weboldal és ügyfélportál: Rivo</span>
+    <span>Weboldal és ügyfélportál: GeneralTeam</span>
   </div>
 </footer>
 

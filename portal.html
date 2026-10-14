@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="hu"><head>
 <script>
-/* Rivo: a Google Apps Script háttér hívása fetch-csel (Safari-barát, bejelentkezés nélkül) */
+/* GeneralTeam: a Google Apps Script háttér hívása fetch-csel (Safari-barát, bejelentkezés nélkül) */
 (function(){var API='https://script.google.com/macros/s/AKfycbxYgeSJEPj4zQlQoxu1woLnLV8YQdEm2bXwhjzd2IbayPJULP6pmNfQOj3PonUnmEnA/exec';
 function call(fn,args,ok,fail){fetch(API,{method:'POST',body:JSON.stringify({fn:fn,args:args}),credentials:'omit',redirect:'follow'}).then(function(r){return r.json()}).then(function(j){if(j&&j.err!==undefined&&j.err!==null){fail&&fail(new Error(j.err))}else{ok&&ok(j?j.res:null)}}).catch(function(e){fail&&fail(e)})}
 function runner(){var ok=null,fail=null,p;p=new Proxy({},{get:function(_,name){if(name==='withSuccessHandler')return function(f){ok=f;return p};if(name==='withFailureHandler')return function(f){fail=f;return p};return function(){call(String(name),[].slice.call(arguments),ok,fail)}}});return p}
@@ -133,7 +133,7 @@ function cs(d){return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'T'+p2(
 function evInfo(e){return (e.link?'Csatlakozás: '+e.link+'\n':'')+(e.hely?'Helyszín: '+e.hely+'\n':'')+'Kókai Zsófia belsőépítész · '+(D.settings.telefon||'')}
 function gcal(e){var r=evRange(e);return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(e.c)+'&dates='+cs(r[0])+'/'+cs(r[1])+'&ctz=Europe%2FBudapest&details='+encodeURIComponent(evInfo(e))+'&location='+encodeURIComponent(e.link||e.hely||'')}
 function icsEsc(x){return String(x||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;')}
-function icsDl(e){var r=evRange(e),t=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Rivo//Kokai Terv//HU','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+e.id+'@rivo.kokaiterv','SEQUENCE:'+(e.seq||0),'DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z','DTSTART;TZID=Europe/Budapest:'+cs(r[0]),'DTEND;TZID=Europe/Budapest:'+cs(r[1]),'SUMMARY:'+icsEsc(e.c),'LOCATION:'+icsEsc(e.link||e.hely||''),'DESCRIPTION:'+icsEsc(evInfo(e)),'END:VEVENT','END:VCALENDAR'].join('\r\n');
+function icsDl(e){var r=evRange(e),t=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//GeneralTeam//Kokai Terv//HU','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+e.id+'@rivo.kokaiterv','SEQUENCE:'+(e.seq||0),'DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z','DTSTART;TZID=Europe/Budapest:'+cs(r[0]),'DTEND;TZID=Europe/Budapest:'+cs(r[1]),'SUMMARY:'+icsEsc(e.c),'LOCATION:'+icsEsc(e.link||e.hely||''),'DESCRIPTION:'+icsEsc(evInfo(e)),'END:VEVENT','END:VCALENDAR'].join('\r\n');
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/calendar;charset=utf-8'}));a.download=String(e.c||'idopont').replace(/[\\/:*?"<>|]/g,'').slice(0,50)+'.ics';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
 function docLink(d,sub){var nm=esc(d[0])+(d[1]?'.'+esc(d[1]):'');return d[2]?'<a href="'+esc(d[2])+'" target="_blank" rel="noopener"><span class="ext">'+esc((d[1]||'').toUpperCase()||'FÁJL')+'</span>'+nm+(sub?' <span class="muted" style="margin-left:auto;font-size:12.5px">'+esc(sub)+'</span>':'')+'</a>':'<a><span class="ext">'+esc((d[1]||'').toUpperCase())+'</span>'+nm+'</a>'}
 function offerDoc(o,m,D8){var e=esc;
