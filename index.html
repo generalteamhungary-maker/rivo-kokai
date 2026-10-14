@@ -16,7 +16,7 @@ if(cur&&(!cur.t||now-cur.t>365*864e5))cur=null;
 if(!cur){cur={src:m?m[1].toLowerCase():'direct',t:now};try{localStorage.setItem(K,JSON.stringify(cur))}catch(e){}}
 window.RIVO_SRC=cur;
 if(/[?&]embed=1/.test(location.search)&&window.parent!==window)document.documentElement.className+=' embed';})();</script>
-<style>html.embed header.top,html.embed footer,html.embed #kapcsolat,html.embed .noemb{display:none!important}html.embed body{background:transparent}</style>
+<style>html.embed header.top,html.embed footer,html.embed #kapcsolat,html.embed #ajanlat,html.embed .noemb{display:none!important}html.embed body{background:transparent}</style>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kókai Terv Belsőépítészet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -502,6 +502,7 @@ function IM(k){return (window.CFG&&CFG.img&&CFG.img[k])||('img/'+k+(k==='logo'?'
 </script>
 
 <script>(function(){if(!/(^| )embed( |$)/.test(document.documentElement.className))return;
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href="#ajanlat"],a[href="#kapcsolat"]');if(!a)return;e.preventDefault();e.stopImmediatePropagation();try{parent.postMessage({rivo:'cta'},'*')}catch(_){}},true);
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;var el=document.querySelector(a.getAttribute('href'));var fr=window.frameElement;if(!el||!fr)return;e.preventDefault();
 var y=fr.getBoundingClientRect().top+parent.scrollY+el.getBoundingClientRect().top-70;parent.scrollTo({top:y,behavior:'smooth'})},true);
 function hh(){return Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)}
