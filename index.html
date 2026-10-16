@@ -370,9 +370,14 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
                 <label class="opt"><input type="radio" name="elso" id="e2" value="Online konzultáció"><b>Online konzultáció</b><span>Díjmentes, Google Meet vagy Zoom, alaprajz alapján</span></label>
               </div>
             </div>
-            <div class="fld">Melyik időpont lenne jó?<small>Javasolt időpontok, hétköznap 9–15 között. A végleges időpontot egyeztetjük.</small>
+            <div class="fld">Melyik időpont lenne jó?<small id="slotinfo">Javasolt időpontok. Ha egyik sem jó, javasolj másikat – késő délután, este vagy hétvégén is megoldható. A végleges időpontot visszaigazolom.</small>
               <div class="slots" id="slots"></div>
             </div>
+            <div class="g2" id="sajf" hidden>
+              <label class="fld">Melyik napon?<input type="date" id="ido_d"></label>
+              <label class="fld">Hány órától?<input type="time" id="ido_t" step="900" value="16:00"></label>
+            </div>
+            <label class="fld">Megjegyzés az időponthoz<small>Nem kötelező. Pl. „kivételesen délután 4 jobb lenne”, „csak hétvégén érek rá”.</small><textarea id="idomegj" name="idomegj" placeholder="pl. kedden délután 4 után bármikor jó"></textarea></label>
             <div class="fee"><span>Az első találkozó és az ajánlat</span><b>díjmentes</b></div>
           </fieldset>
 
@@ -466,9 +471,18 @@ function IM(k){return (window.CFG&&CFG.img&&CFG.img[k])||('img/'+k+(k==='logo'?'
   var ROOMS=['Nappali','Konyha-étkező','Háló','Gyerekszoba','Fürdőszoba','WC','Előszoba','Gardrób','Dolgozó','Terasz','Teljes lakás / ház'];
   var rh=document.getElementById('rooms');
   ROOMS.forEach(function(r,i){var l=document.createElement('label');l.className='pill';l.innerHTML='<input type="checkbox" name="helyisegek" id="h'+i+'"><span></span>';l.querySelector('input').value=r;l.querySelector('span').textContent=r;rh.appendChild(l)});
-  var sh=document.getElementById('slots'),d=new Date(),n=0,DAYS=['vas.','hétfő','kedd','szerda','csüt.','péntek','szo.'];
-  d.setDate(d.getDate()+3);
-  while(n<6){if(d.getDay()>0&&d.getDay()<6){['10:00','13:00'].forEach(function(t){if(n>=6)return;var lab=(d.getMonth()+1)+'. '+d.getDate()+'. '+DAYS[d.getDay()]+' '+t;var l=document.createElement('label');l.className='pill';l.innerHTML='<input type="radio" name="idopont" id="s'+n+'"><span></span>';l.querySelector('input').value=lab;l.querySelector('span').textContent=lab;sh.appendChild(l);n++})}d.setDate(d.getDate()+1)}
+  var sh=document.getElementById('slots'),DAYS=['vas.','hétfő','kedd','szerda','csüt.','péntek','szo.'];
+  function p2(x){return String(x).padStart(2,'0')}
+  function isoD(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
+  function slots(fog){fog=fog||{};var sel=(sh.querySelector('input:checked')||{}).value,tm=String(fog.idok||'10:00, 13:00').split(/[,;\s]+/).map(function(x){var m=x.match(/^(\d{1,2})[:.](\d{2})$/)||x.match(/^(\d{1,2})$/);return m?p2(+m[1])+':'+(m[2]||'00'):''}).filter(Boolean),db=+fog.db||6,nap=fog.napok||'hk',d=new Date(),n=0,guard=0;
+    if(!tm.length)tm=['10:00','13:00'];sh.innerHTML='';d.setDate(d.getDate()+(+fog.elso||3));
+    while(n<db&&guard++<60){var w=d.getDay(),ok=nap==='mind'||(nap==='hk6'?w>0:(w>0&&w<6));if(ok)tm.forEach(function(t){if(n>=db)return;var lab=(d.getMonth()+1)+'. '+d.getDate()+'. '+DAYS[w]+' '+t.replace(/^0/,'');var l=document.createElement('label');l.className='pill';l.innerHTML='<input type="radio" name="idopont" id="s'+n+'"><span></span>';var inp=l.querySelector('input');inp.value=lab;inp.dataset.d=isoD(d);inp.dataset.t=t;if(sel===lab)inp.checked=true;l.querySelector('span').textContent=lab;sh.appendChild(l);n++});d.setDate(d.getDate()+1)}
+    if(fog.rugalmas!==0){var l2=document.createElement('label');l2.className='pill';l2.innerHTML='<input type="radio" name="idopont" id="s_saj" value="Más időpont jobb lenne"><span>Más időpont jobb lenne…</span>';if(sel==='Más időpont jobb lenne')l2.querySelector('input').checked=true;sh.appendChild(l2)}
+    var si=document.getElementById('slotinfo');if(si)si.textContent=fog.szoveg||(fog.rugalmas!==0?'Javasolt időpontok. Ha egyik sem jó, javasolj másikat – késő délután, este vagy hétvégén is megoldható. A végleges időpontot visszaigazolom.':'Javasolt időpontok. A végleges időpontot visszaigazolom.');
+    sajf()}
+  function sajf(){var on=!!(document.getElementById('s_saj')||{}).checked;document.getElementById('sajf').hidden=!on;var dd=document.getElementById('ido_d');if(on&&!dd.value){var t=new Date();t.setDate(t.getDate()+3);dd.value=isoD(t)}}
+  sh.addEventListener('change',sajf);slots({});
+  try{google.script.run.withSuccessHandler(function(r){if(r&&r.fog)slots(r.fog)}).withFailureHandler(function(){}).foglalasBeall()}catch(_){}
   var f=document.getElementById('rf'),step=1,MAX=4,err=document.getElementById('err'),nx=document.getElementById('next'),bk=document.getElementById('back');
   function go(s){step=s;[].forEach.call(f.querySelectorAll('fieldset'),function(fs){fs.hidden=+fs.dataset.step!==s});
     [].forEach.call(f.querySelectorAll('.prog i'),function(i,k){i.classList.toggle('on',k<s)});
@@ -482,7 +496,8 @@ function IM(k){return (window.CFG&&CFG.img&&CFG.img[k])||('img/'+k+(k==='logo'?'
     if(!document.getElementById('gdpr').checked)miss.push('adatkezelési hozzájárulás');
     if(miss.length){err.textContent='Kérlek, töltsd ki: '+miss.join(', ')+'.';err.hidden=false;return}
     var fd=new FormData(f),o={};fd.forEach(function(v,k){if(typeof v!=='string')return;o[k]=o[k]?o[k]+', '+v:v});
-    var sum=['Szolgáltatás: '+o.tipus,'Ingatlan: '+o.ingatlan+(o.m2?' · '+o.m2+' m²':'')+(o.hely?' · '+o.hely:''),'Helyiségek: '+(o.helyisegek||'–'),'Kezdés: '+o.kezdes+(o.hatarido?' · határidő: '+o.hatarido:''),'Első lépés: '+o.elso+(o.idopont?' · '+o.idopont:'')].join('\n');
+    var si0=sh.querySelector('input:checked');if(si0&&si0.id==='s_saj'){var sd=document.getElementById('ido_d').value,st0=document.getElementById('ido_t').value;o.idoD=sd;o.idoT=st0;o.idopont='Saját javaslat: '+(sd?sd.replace(/-/g,'. ')+'.':'')+(st0?' '+st0:'')}else if(si0){o.idoD=si0.dataset.d||'';o.idoT=si0.dataset.t||''}
+    var sum=['Szolgáltatás: '+o.tipus,'Ingatlan: '+o.ingatlan+(o.m2?' · '+o.m2+' m²':'')+(o.hely?' · '+o.hely:''),'Helyiségek: '+(o.helyisegek||'–'),'Kezdés: '+o.kezdes+(o.hatarido?' · határidő: '+o.hatarido:''),'Első lépés: '+o.elso+(o.idopont?' · '+o.idopont:'')+(o.idomegj?' · '+o.idomegj:'')].join('\n');
     var fl=[].slice.call((document.getElementById('fajl')||{}).files||[]);
     var done=function(){f.innerHTML='';var dn=document.createElement('div');dn.className='done';
       dn.innerHTML='<legend style="font-family:var(--display);font-size:28px">Köszönöm, <span id="dnn"></span>!</legend><p>Megkaptam az ajánlatkérésedet, és e-mailben visszaigazolást is küldtem. Hamarosan jelentkezem, és egyeztetjük a díjmentes találkozó időpontját.</p><div class="sum" id="dns"></div>';
